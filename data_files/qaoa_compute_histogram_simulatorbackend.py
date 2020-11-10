@@ -12,7 +12,7 @@ path.append(abs_path)
 from QAOA import QAOA
 
 if __name__ == "__main__":
-    GRAPH = nx.Graph([[0, 1], [0, 2], [0, 4], [1, 2], [1, 4], [2, 4], [0, 3], [3, 4]])
+    GRAPH = nx.Graph([[0, 1], [0, 2], [0, 4], [1, 2], [1, 3], [2, 3], [0, 3], [3, 4]])
 
     FILENAME = abs_path + "/data_files" + "/qaoa_histogram_simulatorbackend.npz"
 
@@ -32,8 +32,8 @@ if __name__ == "__main__":
 
     result = qaoa.execute_circuit(gamma=optimized_gamma, beta=optimized_beta)
 
-    counts = result.get_counts()
+    counts = result.results[0].data.counts
 
-    np.savez(FILENAME, counts=counts, optimized_exp_val=optimized_exp_val, initial_gamma=gamma_0, initial_beta=beta_0,
-             optimized_gamma=optimized_gamma, optimized_beta=optimized_beta, shots=shots, iterations=res.nit,
-             function_evaluations=res.nfev)
+    np.savez(FILENAME, counts=counts, optimized_exp_val=optimized_exp_val, initial_gamma=gamma_0,
+             initial_beta=beta_0, optimized_gamma=optimized_gamma, optimized_beta=optimized_beta, shots=shots,
+             iterations=res.nit, function_evaluations=res.nfev)

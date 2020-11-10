@@ -1,9 +1,6 @@
 from qiskit import QuantumCircuit, ClassicalRegister, Aer, execute
 
 from qiskit.providers.aer.noise import NoiseModel
-from qiskit.test.mock import FakeLondon, FakeMelbourne
-
-from qiskit.visualization import plot_histogram
 from time import time
 
 from numpy import *
@@ -27,7 +24,7 @@ Find a partition of the vertices into two disjoint subsets which maximizes the e
 
 class QAOA:
 
-    def __init__(self, graph: Graph, backend = None, noise_model: NoiseModel = None, shots: int = 8192, vertex_qubit_mapping: list = [], n_qubits: int = None):
+    def __init__(self, graph: Graph, backend=None, noise_model: NoiseModel = None, shots: int = 8192, xatol: float = 1e-2, fatol: float = 1e-1):
         """ CONSTRUCTOR
         QAOA class for MAX CUT problem
 
@@ -35,13 +32,11 @@ class QAOA:
         :param backend: Backend for execution of quantum circuits. If none given, use "qasm_simulator"
         :param noise_model: Own defined noise model for noisy simulation
         :param shots: Number of shots of the quantum circuit to be executed
-        :param vertex_qubit_mapping: Mapping from vertex indices to qubit indices, to account for
-        :param n_qubits: Max number of qubits
         """
 
         # Graph parameters
-        self.v = graph.number_of_nodes()
-        self.m = graph.number_of_edges()
+        self.v = graph.number_of_nodes()    # number of vertices/nodes
+        self.m = graph.number_of_edges()    # number of edges
         self.graph = graph
 
         # If no specific backend is given, use the qasm_simulator (possibly with an own, specified noise model)
@@ -52,20 +47,9 @@ class QAOA:
 
         self.shots = shots
 
-        # n_qubits and vertex_qubit_mapping allows for a mapping from graph vertex indices to physical qubit indices on
-        # a quantum device which may require a different coupling map
-        if n_qubits == None:
-            self.n_qubits = self.v
-        else:
-            self.n_qubits = n_qubits
-
-        # self.q[i] contains the index of the physical qubit assigned to graph vertex i
-        if len(vertex_qubit_mapping) == 0:
-            self.q = [i for i in range(self.v)]
-        else:
-            self.q = [None]*self.n_qubits
-            for map in vertex_qubit_mapping:
-                self.q[map[0]] = map[1]
+        # Error tolerances for optimization
+        self.xatol = xatol
+        self.fatol = fatol
 
         # Variables keeping track of the optimization process and found results
         self.exp_vals = []
@@ -96,7 +80,7 @@ class QAOA:
             cost += (1 - (1 - 2*int(bitstr[n-i])) * (1 - 2*int(bitstr[n-j]))) / 2
         return cost
 
-    def build_circuit(self, gamma: list, beta: list, barriers: bool = False) -> QuantumCircuit:
+    def build_circuit(self, gamma: list, beta: list, barriers: bool = True) -> QuantumCircuit:
         """
         Build quantum circuit for QAOA, parametrized by 2p phases (gamma_{p-1},...,gamma_0) and (beta_{p-1},...,beta_0)
 
@@ -110,194 +94,67 @@ class QAOA:
 
         :param gamma: List of p phases gamma
         :param beta: List of p phases beta
+        :param barriers: Include barriers, True / False
         :return: quantum circuit executing the above unitary on the |cat> state
         """
 
-        # Quantum register of size n_qubits, as a physical device might have more qubits than we have vertices
-        # Reminder: self.q contains the mapping from vertex i to the index of its assigned physical qubit
-        self.qc = QuantumCircuit(self.n_qubits, self.v)
+        # For a Graph of v vertices we need v qubits
+        self.qc = QuantumCircuit(self.v, self.v)
 
         # Prepate the |cat_v> state
-        self.qc.h([self.q[i] for i in range(self.v)])
+        self.qc.h([i for i in range(self.v)])
 
         p = min(len(gamma), len(beta))
 
         for k in range(p):
 
-            self.qc.barrier()
-
-            # APPLY U(B, beta_k)
-            for i in range(self.v):
-                self.qc.rx(beta[k], self.q[i])
-
-            self.qc.barrier()
+            if barriers:
+                self.qc.barrier()
 
             # APPLY U(C,gamma_k)
             for (i, j) in self.graph.edges():
-                self.qc.cnot(self.q[i], self.q[j])
-                self.qc.rz(gamma[k], self.q[j])
-                self.qc.cnot(self.q[i],self.q[j])
+                self.qc.cnot(i, j)
+                self.qc.rz(gamma[k], j)
+                self.qc.cnot(i, j)
 
-        self.qc.barrier()
+                if barriers:
+                    self.qc.barrier()
+
+            # APPLY U(B, beta_k)
+            for i in range(self.v):
+                self.qc.rx(beta[k], i)
+
+        if barriers:
+            self.qc.barrier()
 
         # Add measurements
-        for i in range(self.v):
-            self.qc.measure(self.q[i], i)
+        self.qc.measure([i for i in range(self.v)], [i for i in range(self.v)])
 
         return self.qc
 
-    def execute_circuit(self, gamma: list, beta: list) -> dict:
+    def execute_circuit(self, gamma: list, beta: list):
         self.build_circuit(gamma=gamma, beta=beta)
 
-        #t_0 = time()
-        counts = execute(self.qc, backend=self.backend, shots=self.shots).result().get_counts()
-        #print("Execution time:",time() - t_0)
+        result = execute(self.qc, backend=self.backend, shots=self.shots).result()
 
-        return counts
+        return result
 
-    def compute_exp_val(self, counts: dict, shots: int = 0):
+    def compute_exp_val(self, result):
 
-        if shots == 0:
-            shots = self.shots
+        shots = result.results[0].shots
 
         exp_val = 0
 
-        #t_0 = time()
+        counts = result.get_counts()
+
         for bitstring in counts.keys():
             # NOTE: the bitstrings from counts are right-endian, i.e. c[0] on the right end side
             cost = self.maxcut_cost(bitstring)
             exp_val += cost * (counts[bitstring] / shots)
-        #print("Postprocessing time:",time()-t_0)
 
         return exp_val
 
-    # ALTERNATIVE IMPLEMENTATION:
-
-    """
-    def pre_divide_edges(self):
-        rest = list(self.graph.edges)
-        divs = []
-
-        tmp = None
-        while len(rest) != 0:
-            new = [rest.pop(0)]
-            vertices_used = [new[0][0], tmp[0][1]]
-            for i in len(rest):
-                if edge[0] not in vertices_used and edge[1] not in vertices_used:
-
-            break
-    """
-
-    def build_circuit_alt(self, gamma: list, beta: list):
-        self.circuits = []
-
-        qc_temp = QuantumCircuit(self.n_qubits,2)
-
-        p = min(len(gamma), len(beta))
-
-        for i in range(self.v):
-            qc_temp.h(self.q[i])
-
-        for k in range(p):
-            qc_temp.barrier()
-
-            # APPLY U(C,gamma_k)
-            for (i, j) in self.graph.edges():
-                qc_temp.cnot(self.q[i], self.q[j])
-                qc_temp.rz(gamma[k], self.q[j])
-                qc_temp.cnot(self.q[i], self.q[j])
-
-            qc_temp.barrier()
-
-            # APPLY U(B, beta_k)
-            for i in range(self.v):
-                qc_temp.rx(2 * beta[k], self.q[i])
-
-        qc_temp.barrier()
-
-        for (i,j) in self.graph.edges():
-            qc_edge = qc_temp.copy()
-
-            qc_edge.measure((self.q[i],self.q[j]),(0,1))
-
-            self.circuits.append(qc_edge.copy())
-
-
-
-    def build_circuit_alt_alt(self, gamma: list, beta: list):
-        self.qc = QuantumCircuit(self.n_qubits)
-
-        cregs = [ClassicalRegister(2)]*self.m
-        for i,c in enumerate(cregs):
-            print(i)
-            self.qc.add_register(c)
-
-        # Prepate the |cat_v> state
-        self.qc.h([self.q[i] for i in range(self.v)])
-
-        p = min(len(gamma), len(beta))
-
-        for k in range(p):
-
-            self.qc.barrier()
-
-            # APPLY U(C,gamma_k)
-            for (i, j) in self.graph.edges():
-                self.qc.cnot(self.q[i], self.q[j])
-                self.qc.rz(gamma[k], self.q[j])
-                self.qc.cnot(self.q[i], self.q[j])
-
-            self.qc.barrier()
-
-            # APPLY U(B, beta_k)
-            for i in range(self.v):
-                self.qc.rx(2 * beta[k], self.q[i])
-
-        self.qc.barrier()
-
-        # APPLY MEASUREMENTS
-
-        for k, (i,j) in enumerate(self.graph.edges):
-            self.qc.measure((i,j),cregs[k])
-
-        return self.qc
-
-    def execute_circuit_alt(self, gamma: list, beta: list):
-        self.build_circuit_alt(gamma=gamma, beta=beta)
-
-        counts = execute(self.circuits, backend=self.backend, shots=self.shots).result().get_counts()
-
-        return counts
-
-    def execute_circuit_alt_alt(self, gamma: list, beta: list):
-        self.build_circuit_alt_alt(gamma=gamma, beta=beta)
-
-        counts = execute(self.qc, backend=self.backend, shots=self.shots).result().get_counts()
-
-        return counts
-
-    def compute_exp_val_alt(self, counts: dict, shots: int = 0):
-        if shots == 0:
-            shots = self.shots
-
-        exp_val = 0
-
-        for edge_counts in counts:
-
-            zz_exp_val = 0
-
-            for key in edge_counts.keys():
-                if key == "00" or key == "11":
-                    zz_exp_val += edge_counts[key]
-                else:
-                    zz_exp_val -= edge_counts[key]
-            edge_cost_exp_val = (1/2) * (1 - (zz_exp_val / shots))
-
-            exp_val += edge_cost_exp_val
-
-        return exp_val
-
-    def objective_func(self,var_params: list, version: int = 1):
+    def objective_func(self, var_params: list):
         """
         Objective function for use in optimization. Returns the negative of the the expectation value of the cost func,
         to be minimized w.r.t the phases gamma_i and beta_i
@@ -308,22 +165,21 @@ class QAOA:
 
         p = len(var_params) // 2
 
-        if version == 1:
-            counts = self.execute_circuit(gamma=var_params[0:p], beta=var_params[p::])
-            exp_val = self.compute_exp_val(counts)
-        else:
-            counts = self.execute_circuit_alt(gamma=var_params[0:p], beta=var_params[p::])
-            exp_val = self.compute_exp_val_alt(counts)
+        result = self.execute_circuit(gamma=var_params[0:p], beta=var_params[p::])
+        exp_val = self.compute_exp_val(result)
+
+        print(var_params[0:p], var_params[p::])
+        print(exp_val)
 
         # Statistics from the optimization process:
-        self.all_counts.append(counts)
+        self.all_counts.append(result.get_counts())
         self.exp_vals.append(- exp_val)
 
         return - exp_val
 
-    def run_optimization(self,gamma_start: list, beta_start: list, method: str = 'Nelder-Mead', version: int = 1, save_statistics: bool = True):
+    def run_optimization(self,gamma_start: list, beta_start: list, method: str = 'Nelder-Mead'):
         """
-
+        Run optimization for Max cut
 
         :param gamma_start: start point for optimzation, list of p initial phases gamma
         :param beta_start: start point for optimization, list of p initial phases gamma
@@ -335,7 +191,6 @@ class QAOA:
 
         p = min(len(gamma_start), len(beta_start))
 
-
         self.exp_vals = []
         self.all_counts = []
 
@@ -343,8 +198,7 @@ class QAOA:
 
         # scipy.optimize.minimize
         res = minimize(fun=self.objective_func, x0=var_params_start, method=method,
-                       args=(version,),
-                       options={'xatol': 1e-2, 'fatol': 1e-1, 'disp': True})
+                       options={'xatol': self.xatol, 'fatol': self.fatol, 'disp': True})
 
         # Save the found minimized (maximized) solution with the associated parameters {gamma_i} and {beta_i}
         self.optimized_exp_val = - res.fun
@@ -353,7 +207,7 @@ class QAOA:
 
         return res
 
-    def landscape_plot(self, gamma_bounds: tuple, beta_bounds: tuple, n: int, version: int = 1):
+    def landscape_plot(self, gamma_bounds: tuple, beta_bounds: tuple, n: int):
         gamma = linspace(gamma_bounds[0], gamma_bounds[1], n)
         beta = linspace(beta_bounds[0], beta_bounds[1], n)
 
@@ -362,40 +216,22 @@ class QAOA:
         cost_exp_vals_1 = zeros(shape=shape(gamma))
         cost_exp_vals_2 = zeros(shape=shape(gamma))
 
-        t_start_1 = time()
         for i in range(n):
             for j in range(n):
-                counts = self.execute_circuit([gamma[i][j]], [beta[i][j]])
-                cost_exp_vals_1[i][j] = self.compute_exp_val(counts)
+                result = self.execute_circuit([gamma[i][j]], [beta[i][j]])
+                cost_exp_vals_1[i][j] = self.compute_exp_val(result)
                 print(i,j)
-        t_end_1 = time()
 
-        t_start_2 = time()
-        for i in range(n):
-            for j in range(n):
-                counts_2 = self.execute_circuit_alt([gamma[i][j]], [beta[i][j]])
-                cost_exp_vals_2[i][j] = self.compute_exp_val_alt(counts_2)
-                print(i,j)
-        t_end_2 = time()
+        fig, ax = plt.subplots(2,1,constrained_layout=True)
 
-        print(t_end_1 - t_start_1)
-        print(t_end_2 - t_start_2)
-
-        fig, (ax1, ax2) = plt.subplots(2,1,constrained_layout=True,sharex=True)
-
-        ax1.imshow(cost_exp_vals_1, interpolation='bicubic', origin='lower',
-                   extent=[gamma_bounds[0],gamma_bounds[1],beta_bounds[0],beta_bounds[1]])
-        ax2.imshow(cost_exp_vals_2, interpolation='bicubic', origin='lower',
+        ax.imshow(cost_exp_vals_1, interpolation='bicubic', origin='lower',
                    extent=[gamma_bounds[0],gamma_bounds[1],beta_bounds[0],beta_bounds[1]])
 
         #ax1.colorbar(orientation="horizontal", pad=0.2)
 
         plt.xlabel(r'$\gamma$')
-        ax1.set_ylabel(r'$\beta$')
-        ax2.set_ylabel(r'$\beta$')
-
-        ax1.set_title(r"QAOA - single quantum execution, exponential mmt post processing",size=8)
-        ax2.set_title(r"QAOA - abs(E) quantum executions, efficient mmt post processing",size=8)
+        ax.set_ylabel(r'$\beta$')
+        ax.set_title(r"QAOA - single quantum execution, exponential mmt post processing",size=8)
 
         plt.show()
 
@@ -439,43 +275,3 @@ def create_good_solution_counts(qaoa: QAOA, threshold: int = 0.8) -> (dict, dict
             good[bitstr] = 1000
 
     return optimal, good, all_costs
-
-if __name__ == "__main__":
-    g = Graph([(0,1),(0,2),(0,3),(0,4),(1,2),(1,3),(2,3),(3,4)])
-
-    qaoa = QAOA(g)
-
-    qaoa.landscape_plot((0,2*pi),(0,pi),n=100)
-
-    #qaoa.landscape_plot(gamma_bounds=(0,2*pi), beta_bounds=(0,pi),n=10)
-
-    #res = qaoa.run_optimization([.7],[1.],version=1)
-    #print(res)
-
-    #print(qaoa.compute_exp_val(qaoa.execute_circuit([.4375], [1.29375])))
-
-    #print(qaoa.compute_exp_val_alt(qaoa.execute_circuit_alt([.4375],[1.29375])))
-
-    #print(qaoa.execute_circuit_alt_alt([.4375],[1.29375]))
-
-    """
-    g_2 = Graph([(0,1),(0,2),(0,3),(0,4),(1,2),(1,3),(2,3),(3,4),(3,5),(4,5),(2,5),(0,6),(1,6),(2,6),(4,7),(5,7),(6,7),(3,7),(3,8),(5,8),(6,9),(1,9),(2,9),
-                 (1,10),(2,10),(4,10),(6,10),(8,10),(9,10),(0,11),(2,11),(3,11),(5,11),(7,11),(8,11),(10,11)])
-
-    qaoa_2 = QAOA(g_2)
-
-    t_start_1 = time()
-    print(qaoa.compute_exp_val(qaoa.execute_circuit([.4375], [1.29375])))
-    t_end_1 = time()
-
-    t_start_2 = time()
-    print(qaoa.compute_exp_val_alt(qaoa.execute_circuit_alt([.4375],[1.29375])))
-    t_end_2 = time()
-
-    print(t_end_1 - t_start_1)
-    print(t_end_2 - t_start_2)
-
-    print("do landscape")
-
-    qaoa_2.landscape_plot(gamma_bounds=(0, 2 * pi), beta_bounds=(0, pi), n=10)
-    """
