@@ -32,6 +32,8 @@ class QAOA:
         :param backend: Backend for execution of quantum circuits. If none given, use "qasm_simulator"
         :param noise_model: Own defined noise model for noisy simulation
         :param shots: Number of shots of the quantum circuit to be executed
+        :param xatol: Absolute error tolerance used in optimization procedure, in the variational parameters
+        :param fatol: Absolute error tolerance used in optimization procedure, in the cost function value f(x)
         """
 
         # Graph parameters
