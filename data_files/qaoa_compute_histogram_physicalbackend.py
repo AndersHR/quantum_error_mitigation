@@ -17,7 +17,13 @@ if __name__ == "__main__":
 
     FILENAME = abs_path + "/data_files" + "/qaoa_histogram_physicalbackend.npz"
 
-    phys_backend = FakeVigo()
+    IBMQ_TOKEN = ""     # Copy and paste IBMQ token to this string
+
+    provider = IBMQ.enable_account(IBMQ_TOKEN)
+
+    phys_backend = provider.get_backend("ibmq_valencia")
+
+    #phys_backend = FakeVigo() # mock backend
 
     shots = 8192
 

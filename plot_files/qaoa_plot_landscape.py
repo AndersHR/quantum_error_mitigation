@@ -17,7 +17,7 @@ if __name__ == "__main__":
     GRAPH, shots, gammas, betas, costs = file["GRAPH"],file["shots"],file["gammas"],file["betas"],file["costs"]
 
     plt.xlabel(r"$\beta$", fontsize=12)
-    plt.ylabel(r"$\gamma$", fontsize=12)
+    plt.ylabel(r"$\gamma$", fontsize=12, rotation="horizontal")
 
     betas, gammas = np.meshgrid(gammas, betas)
 
@@ -28,5 +28,7 @@ if __name__ == "__main__":
     cbar.ax.tick_params(labelsize=10, labeltop=True, labelbottom=True)
 
     plt.tight_layout()
+
+    plt.savefig("qaoa_landscape.png", dpi=300)
 
     plt.show()

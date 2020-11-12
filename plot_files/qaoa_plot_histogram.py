@@ -65,10 +65,10 @@ if __name__ == "__main__":
         if bitstr in good_bitstrings and not bitstr in optimal_bitstrings:
             y_good[n] = 1.0
 
-    plt.bar(x, y_good, align="center", alpha=0.2, label=r"$z$  s.t. $C(z) = 5$")
-    plt.bar(x, y_optimal, align="center", alpha=0.2, label=r"$z$  s.t. $C(z) = 6$")
+    plt.bar(x, y_good, align="center", alpha=0.2, label=r"Basis states $|z>$  s.t. $C(z) = 5$")
+    plt.bar(x, y_optimal, align="center", alpha=0.2, label=r"Basis states $|z>$  s.t. $C(z) = 6$")
     plt.bar(x, y_sim, fill=False, linestyle="-", linewidth=1.0, label=r"Mmt. counts $n_z$/$N$, from QAOA w/ ideal simulator backend") # $p_z = |<\gamma,\beta\,|\,z>|^2$
-    plt.bar(x, y_phys, fill=False, linestyle="--", linewidth=1.0, label=r"Mmt. counts $n_z$/$N$, from QAOA w/ mock backend FakeVigo")
+    plt.bar(x, y_phys, fill=False, linestyle="--", linewidth=1.0, label=r"Mmt. counts $n_z$/$N$, from QAOA w/ physical backend ibmq_valencia")
 
     plt.ylim(0, 0.25)
     plt.xticks(rotation="vertical", fontsize=13)
