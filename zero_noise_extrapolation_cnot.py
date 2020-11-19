@@ -83,7 +83,7 @@ class ZeroNoiseExtrapolation:
         self.all_exp_vals = zeros(0)
         self.mitigated_exp_vals = zeros(0)
 
-        self.result = None
+        self.measurement_results = []
 
     def set_shots(self, shots: int):
         if shots <= 8192:
@@ -205,7 +205,7 @@ class ZeroNoiseExtrapolation:
             result = execute(execution_circuits, backend=self.backend,
                              pass_manager=PassManager(), shots=self.shots).result()
 
-        self.result = result    # Saving the result in a member variable. Might remove.
+        self.measurement_results.append(result)    # Saving the result in a member variable. Might remove.
 
         return result.get_counts()
 
@@ -293,8 +293,8 @@ class ZeroNoiseExtrapolation:
         n_amp_factors = shape(self.noise_amplification_factors)[0]
 
         if verbose:
-            print("shots=", self.shots, ", n_amp_factors=", self.n_amp_factors, ", paulitwirl=", self.pauli_twirl,
-                  ", repeats=", repeats, sep="")
+            print("repeats=", repeats ,", shots per repats=", self.shots, ", n_amp_factors=", self.n_amp_factors,
+                  ", paulitwirl=", self.pauli_twirl, sep="")
             print("noise amplification factors=", self.noise_amplification_factors, sep="")
 
         if verbose:
@@ -316,6 +316,8 @@ class ZeroNoiseExtrapolation:
             print("Executing circuits")
 
         counts = self.execute_circuits(circuits)
+
+        self.counts = counts
 
         exp_vals = self.compute_exp_vals(counts)
 
