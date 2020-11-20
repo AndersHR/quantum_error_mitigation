@@ -209,34 +209,6 @@ class QAOA:
 
         return res
 
-    def landscape_plot(self, gamma_bounds: tuple, beta_bounds: tuple, n: int):
-        gamma = linspace(gamma_bounds[0], gamma_bounds[1], n)
-        beta = linspace(beta_bounds[0], beta_bounds[1], n)
-
-        gamma, beta = meshgrid(gamma, beta)
-
-        cost_exp_vals_1 = zeros(shape=shape(gamma))
-        cost_exp_vals_2 = zeros(shape=shape(gamma))
-
-        for i in range(n):
-            for j in range(n):
-                result = self.execute_circuit([gamma[i][j]], [beta[i][j]])
-                cost_exp_vals_1[i][j] = self.compute_exp_val(result)
-                print(i,j)
-
-        fig, ax = plt.subplots(2,1,constrained_layout=True)
-
-        ax.imshow(cost_exp_vals_1, interpolation='bicubic', origin='lower',
-                   extent=[gamma_bounds[0],gamma_bounds[1],beta_bounds[0],beta_bounds[1]])
-
-        #ax1.colorbar(orientation="horizontal", pad=0.2)
-
-        plt.xlabel(r'$\gamma$')
-        ax.set_ylabel(r'$\beta$')
-        ax.set_title(r"QAOA - single quantum execution, exponential mmt post processing",size=8)
-
-        plt.show()
-
     def get_optimized_solution(self) -> (float, list, list):
         return self.optimized_exp_val, self.optimized_gamma, self.optimized_beta
 

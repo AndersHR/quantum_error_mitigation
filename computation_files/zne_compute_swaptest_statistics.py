@@ -80,30 +80,33 @@ if __name__ == "__main__":
         e = swaptest_exp_val_func(counts[i])
         variances_samples[i] = 1 - e**2
 
-    print(variances)
-    print(variances*8192)
-    print("variance:", variances_samples)
+    #print(variances)
+    #print(variances*8192)
+    print("variances in each circuit i:\n", variances_samples)
 
-    print("exp vals:", E)
+    print("exp vals:\n", E)
 
     # Error tolerance
     tol = 0.01
 
     N_s = np.zeros(max_amp_factors-1)
+    N_tot = np.zeros(max_amp_factors-1)
     sigmasquared = np.zeros(max_amp_factors-1)
 
     for i in range(0, max_amp_factors-1):
         sigmasquared[i] = (gammas[i]**2).dot(variances_samples[0:2+i])
         N_s[i] = (gammas[i]**2).dot(variances_samples[0:2+i]) / (0.01**2)
+        N_tot[i] = N_s[i]*(i+2)
 
-    print("N_s:", N_s)
-    print("sigma^2:", sigmasquared/8192)
+    print("N_s:\n", N_s)
+    print("N_tot:\n", N_tot)
+    print("sigma^2:\n", sigmasquared/8192)
+    print("sqrt(sigma^2):\n", np.sqrt(sigmasquared/8192))
 
     repeats_s = N_s / 8192
 
-    print(repeats_s)
 
-    print("mitigated exp vals:", mitigated)
+    print("mitigated exp vals:\n", mitigated)
 
     var_n8 = 0
     repeats_n8 = 1000
@@ -112,10 +115,12 @@ if __name__ == "__main__":
         var_n8 += (mit_n8 - mitigated[7])**2
     var_n8 = var_n8 / repeats_n8
 
-    print("var in n=8:", var_n8)
-    print("std in n=8:", np.sqrt(var_n8))
+    print("var in n=8:\n", var_n8)
+    print("std in n=8:\n", np.sqrt(var_n8))
 
     FILENAME_DATA = abs_path + "/data_files" + "/zne_swaptest_statistics.npz"
 
-    np.savez(FILENAME_DATA, variances=variances_samples, exp_vals=E, error_sampled_shots=N_s, gammas=gammas,
-             mitigated=mitigated)
+    np.savez(FILENAME_DATA, variances=variances_samples, exp_vals=E, error_sampled_shots=N_s,
+             error_sampled_total_shots=N_tot, gammas=gammas, mitigated=mitigated)
+
+    print(richardson_extrapolate_get_coeffs(np.asarray([1,3,5,7,11,13,15])))
