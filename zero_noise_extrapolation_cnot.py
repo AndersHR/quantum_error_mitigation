@@ -237,57 +237,6 @@ class ZeroNoiseExtrapolation:
             exp_vals[i] = exp_val_k / self.num_executions
         return exp_vals
 
-    def extrapolate(self, exp_vals, noise_amplification_factors=None, n_amp_factors=None,
-                    custom_extrapolation_func=None) -> float:
-        """
-        Do extrapolation to the zero-noise case based on the expectation values measured from the
-        noise amplified circuits.
-
-        :param exp_vals: Expectation values in an array of length n_amp_factors
-        :param noise_amplification_factors: Optional custom noise amplification factors
-        :param n_amp_factors: Number of amplification factors to be included in the extrapolation
-        :param custom_extrapolation_func:
-        :return: Extrapolated/mitigated expectation value
-        """
-        if noise_amplification_factors == None:
-            noise_amplification_factors = self.noise_amplification_factors
-        if n_amp_factors == None:
-            n_amp_factors = self.n_amp_factors
-
-        # Sanity checks. For now, only prints for debugging purposes
-        if shape(noise_amplification_factors)[0] < n_amp_factors:
-            print("Noise amplification factors is of shape", shape(noise_amplification_factors),
-                  "but must be of length equal or greater than n_amp_factors=",n_amp_factors)
-        if shape(exp_vals)[0] < n_amp_factors:
-            print("Array of exp vals is of shape", shape(noise_amplification_factors),
-                  "but must be of length equal or greater than n_amp_factors=", n_amp_factors)
-
-        if custom_extrapolation_func == None:
-            return richardson_extrapolate(asarray(exp_vals[0:n_amp_factors]),
-                                          asarray(noise_amplification_factors[0:n_amp_factors]))
-        else:
-            return custom_extrapolation_func(asarray(exp_vals[0:n_amp_factors]),
-                                             asarray(noise_amplification_factors[0:n_amp_factors]))
-
-    def extrapolate_array(self, all_exp_vals, noise_amplification_factors=None,
-                          extrapolation_method=None, n_amp_factors=None) -> ndarray:
-        """
-        Redo the extrapolation to the zero-noise limit for an array of runs.
-
-        :param all_exp_vals:
-        :param noise_amplification_factors:
-        :param extrapolation_method:
-        :param n_amp_factors:
-        :return: Array of mitigated expectation values for each run
-        """
-        if noise_amplification_factors != None and n_amp_factors == None:
-            n_amp_factors = shape(noise_amplification_factors)[0]
-
-        results = zeros(shape(all_exp_vals)[0])
-        for i in range(shape(all_exp_vals)[0]):
-            results[i] = self.extrapolate(all_exp_vals[i], noise_amplification_factors,
-                                          extrapolation_method, n_amp_factors)
-        return results
 
     def mitigate(self, repeats: int = 1, verbose: bool = False) -> float:
         """
