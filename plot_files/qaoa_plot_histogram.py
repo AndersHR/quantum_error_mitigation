@@ -85,15 +85,3 @@ if __name__ == "__main__":
 
     import qiskit
     print(qiskit.__qiskit_version__)
-
-    print(y_sim[9] + y_sim[22])
-
-    print(y_sim[3] + y_sim[5] + y_sim[9] + y_sim[10] + y_sim[11] + y_sim[12] + y_sim[13] + y_sim[18]
-          + y_sim[19] + y_sim[20] + y_sim[21] + y_sim[22] + y_sim[22] + y_sim[26] + y_sim[28]
-          )
-
-    print(y_phys[9] + y_phys[22])
-
-    print(y_phys[3] + y_phys[5] + y_phys[9] + y_phys[10] + y_phys[11] + y_phys[12] + y_phys[13] + y_phys[18]
-          + y_phys[19] + y_phys[20] + y_phys[21] + y_phys[22] + y_phys[22] + y_phys[26] + y_phys[28]
-          )
