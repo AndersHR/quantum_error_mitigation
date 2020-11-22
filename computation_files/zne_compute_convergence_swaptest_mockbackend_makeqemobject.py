@@ -8,23 +8,9 @@ from sys import path
 abs_path = dirname(dirname(__file__))
 path.append(abs_path)
 
-from zne_swaptest_circuit import qc_swaptest
+from zne_circuits import qc_swaptest, swaptest_exp_val_func
 from zero_noise_extrapolation_cnot import *
 
-def swaptest_exp_val_func(counts: dict):
-    exp_val = 0
-    tot = 0
-    for key in counts.keys():
-        if key == "0":
-            eigenval = 1
-        elif key == "1":
-            eigenval = -1
-        else:
-            print("ERROR")
-            return
-        exp_val += counts[key] * eigenval
-        tot += counts[key]
-    return exp_val / tot
 
 if __name__ == "__main__":
     FILENAME_OBJ = abs_path + "/data_files" + "/zne_convergence_mockbackend_obj.npz"

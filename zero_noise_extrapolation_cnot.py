@@ -34,7 +34,7 @@ class ZeroNoiseExtrapolation:
     def __init__(self, qc: QuantumCircuit, exp_val_func, backend=None, noise_model=None,
                  n_amp_factors: int = 3, pauli_twirl: bool = False, shots: int = 8192,
                  pass_manager: PassManager = None):
-        """
+        """ CONSTRUCTOR
         :param qc: The circuit to be mitigated
         :param exp_val_func: A function which computes the observed expectation value of some operator as a function of
                              the measurement counts from the circuit qc

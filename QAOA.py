@@ -1,15 +1,12 @@
-from qiskit import QuantumCircuit, ClassicalRegister, Aer, execute
+from qiskit import QuantumCircuit, Aer, execute
 
 from qiskit.providers.aer.noise import NoiseModel
-from time import time
 
 from numpy import *
 
-from scipy.optimize import optimize, minimize
+from scipy.optimize import minimize
 
-import matplotlib.pyplot as plt
-
-from networkx import Graph, draw, draw_shell, draw_networkx
+from networkx import Graph
 
 """
 Quantum Approximate Optimization Algorithm for the MAX CUT problem
